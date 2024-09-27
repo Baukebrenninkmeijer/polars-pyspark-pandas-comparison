@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "tabular-titans"
+version = "0.1.0"
+description = "Comparison of three popular data processing frameworks"
+authors = ["Bauke Brenninkmeijer <bauke.brenninkmeijer@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "3.12.5"
+pyspark = "^3.5.2"
+pandas = "^2.2.2"
+polars = "^1.6.0"
+setuptools = "^74.0.0"
+pyarrow = "^17.0.0"
+tqdm = "^4.66.5"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
