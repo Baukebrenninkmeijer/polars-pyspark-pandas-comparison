@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "tabular-titans"
+name = "tabular_titans"
 version = "0.1.0"
 description = "Comparison of three popular data processing frameworks"
 authors = ["Bauke Brenninkmeijer <bauke.brenninkmeijer@gmail.com>"]
@@ -13,6 +13,8 @@ polars = "^1.6.0"
 setuptools = "^74.0.0"
 pyarrow = "^17.0.0"
 tqdm = "^4.66.5"
+rich = "^13.8.1"
+multiprocess = "^0.70.17"
 
 
 [build-system]
