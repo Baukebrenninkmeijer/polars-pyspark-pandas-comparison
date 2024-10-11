@@ -1,13 +1,14 @@
-import time
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import polars as pl
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
-from pyspark.sql.functions import sum as spark_sum
 from tqdm import trange
+from pathlib import Path
+
+data_location = Path(__file__).parent.parent / 'data'
+if not data_location.exists():
+    data_location.makedirs(exist_ok=True)
 
 # Function to generate fake e-commerce data
 def generate_fake_data(num_rows) -> dict[str, Any]:
@@ -39,5 +40,5 @@ def random_dates(start, end, n=10):
         time_unit='ms')
 
 # Generate data
-num_rows = 100_000_000
+num_rows = 10_000_000
 save_fake_data_n_times(10, num_rows)
