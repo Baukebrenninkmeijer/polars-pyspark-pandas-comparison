@@ -175,32 +175,35 @@ def benchmark_polars() -> pd.DataFrame:
     results = []
     combs = list(product(polars_functions, [True, False], [True, False], [True, False]))
     with Pool(processes=1) as pool:
-        for func, gpu, streaming, lazy in tqdm(combs):
-            data = read_polars_lazy() if lazy else read_polars()
-            if gpu and streaming:
-                continue
-            if gpu:
-                continue
-            if not lazy and streaming:
-                continue
-            # if func.__name__ == 'polars_join' and lazy:
-            #     continue
-            logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}")
-            duration = pool.apply(
-                func=time_func(func), kwds=dict(df=data, gpu=gpu, streaming=streaming)
-            )
-            logger.info(duration)
-            results.append(
-                {
-                    "func": func.__name__,
-                    "gpu": gpu,
-                    "streaming": streaming,
-                    "lazy": lazy,
-                    "duration": duration,
-                }
-            )
-            results_df = pd.DataFrame(results)
-            results_df.to_parquet("results_polars.parquet")
+        for i in range(1, 50, 3):
+            for func, gpu, streaming, lazy in tqdm(combs):
+                data = read_polars_lazy() if lazy else read_polars()
+                data = data.limit(i * BASE_SIZE)
+                if gpu and streaming:
+                    continue
+                if gpu:
+                    continue
+                if not lazy and streaming:
+                    continue
+                # if func.__name__ == 'polars_join' and lazy:
+                #     continue
+                logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}")
+                duration = pool.apply(
+                    func=time_func(func),
+                    kwds=dict(df=data, gpu=gpu, streaming=streaming),
+                )
+                logger.info(duration)
+                results.append(
+                    {
+                        "func": func.__name__,
+                        "gpu": gpu,
+                        "streaming": streaming,
+                        "lazy": lazy,
+                        "duration": duration,
+                    }
+                )
+                results_df = pd.DataFrame(results)
+                results_df.to_parquet("results_polars.parquet")
     return results_df
 
 
