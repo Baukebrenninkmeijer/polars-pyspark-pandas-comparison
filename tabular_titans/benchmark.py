@@ -181,12 +181,8 @@ def benchmark_polars() -> pd.DataFrame:
                 data = data.limit(i * BASE_SIZE)
                 if gpu and streaming:
                     continue
-                if gpu:
-                    continue
                 if not lazy and streaming:
                     continue
-                # if func.__name__ == 'polars_join' and lazy:
-                #     continue
                 logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}")
                 duration = pool.apply(
                     func=time_func(func),
@@ -203,7 +199,7 @@ def benchmark_polars() -> pd.DataFrame:
                     }
                 )
                 results_df = pd.DataFrame(results)
-                results_df.to_parquet("results_polars.parquet")
+                results_df.to_parquet(data_dir / "results_polars.parquet")
     return results_df
 
 
