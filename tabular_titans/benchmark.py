@@ -31,7 +31,7 @@ handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
-data_dir = Path("data")
+data_dir = Path(__file__).parent.parent / "data"
 parquet_files = [x.as_posix() for x in data_dir.glob("*.parquet")]
 logger.debug(f"{len(parquet_files)} files loaded.")
 JOIN_SIZE = 1_000_000
