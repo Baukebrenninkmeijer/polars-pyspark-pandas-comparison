@@ -202,7 +202,7 @@ def benchmark_polars() -> pd.DataFrame:
                     }
                 )
                 results_df = pd.DataFrame(results)
-                results_df.to_parquet(data_dir / "results_polars.parquet")
+                results_df.to_parquet("results_polars.parquet")
     return results_df
 
 
