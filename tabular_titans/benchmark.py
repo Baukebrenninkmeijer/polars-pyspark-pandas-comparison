@@ -35,7 +35,7 @@ data_dir = Path(__file__).parent.parent / "data"
 parquet_files = [x.as_posix() for x in data_dir.glob("*.parquet")]
 logger.debug(f"{len(parquet_files)} files loaded.")
 JOIN_SIZE = 1_000_000
-BASE_SIZE = 1_000_000
+BASE_SIZE = 100_000
 
 
 def read_pandas(parquet_files: list[str] = parquet_files) -> pd.DataFrame:
@@ -184,10 +184,11 @@ def benchmark_polars() -> pd.DataFrame:
                 if not lazy and streaming:
                     continue
                 logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}")
-                duration = pool.apply(
-                    func=time_func(func),
-                    kwds=dict(df=data, gpu=gpu, streaming=streaming),
-                )
+                # duration = pool.apply(
+                #     func=time_func(func),
+                #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
+                # )
+                duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
                 logger.info(duration)
                 results.append(
                     {
