@@ -178,7 +178,8 @@ def benchmark_polars() -> pd.DataFrame:
         for i in range(1, 50, 3):
             for func, gpu, streaming, lazy in tqdm(combs):
                 data = read_polars_lazy() if lazy else read_polars()
-                data = data.limit(i * BASE_SIZE)
+                limit = i * BASE_SIZE
+                data = data.limit(limit)
                 if gpu and streaming:
                     continue
                 if not lazy and streaming:
@@ -197,6 +198,7 @@ def benchmark_polars() -> pd.DataFrame:
                         "streaming": streaming,
                         "lazy": lazy,
                         "duration": duration,
+                        "limit": limit,
                     }
                 )
                 results_df = pd.DataFrame(results)
