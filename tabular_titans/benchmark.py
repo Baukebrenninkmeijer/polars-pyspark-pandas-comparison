@@ -212,10 +212,8 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
             #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
             # )
             duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
-
-            results.append(
-                config.update({"duration": duration})
-            )
+            config["duration"] = duration
+            results.append(config)
             results_df = pl.DataFrame(results)
             results_df.write_parquet(results_dir / "results_polars.parquet")
         except Exception as e:
