@@ -5,6 +5,7 @@ from itertools import product
 from pathlib import Path
 from time import sleep
 
+import fire
 import pandas as pd
 import polars as pl
 import psutil
@@ -18,7 +19,7 @@ from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, year
 from rich.logging import RichHandler
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from tabular_titans.utils import time_func
 
@@ -196,7 +197,6 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
             #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
             # )
             duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
-            logger.info(duration)
             results.append(
                 {
                     "func": func.__name__,
@@ -245,7 +245,7 @@ def benchmark_pandas() -> pd.DataFrame:
         for func in tqdm(pandas_functions):
             data = read_pandas()
             duration = pool.apply(func=time_func(func), kwds=dict(df=data))
-            logger.info(duration)
+            # logger.info(duration)
             results.append({"func": func.__name__, "duration": duration})
             results_df = pd.DataFrame(results)
             results_df.to_parquet("results_pandas.parquet")
@@ -268,10 +268,4 @@ def checkMemory(amount):
 
 
 if __name__ == "__main__":
-    # threading.Thread(
-    #     name="Memory Regulator", target=checkMemory, kwargs={"amount": 25}
-    # ).start()
-    benchmark_polars()
-    # benchmark_pyspark()
-    # benchmark_pandas()
-    # os._exit(0)
+    fire.Fire()
