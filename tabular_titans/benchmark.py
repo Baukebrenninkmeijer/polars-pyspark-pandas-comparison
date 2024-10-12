@@ -40,7 +40,7 @@ else:
 parquet_files = [x.as_posix() for x in data_dir.glob("*.parquet")]
 logger.debug(f"{len(parquet_files)} files loaded.")
 JOIN_SIZE = 1_000_000
-BASE_SIZE = 500_000
+BASE_SIZE = 1_000_000
 
 
 def read_pandas(parquet_files: list[str] = parquet_files) -> pd.DataFrame:
@@ -53,10 +53,11 @@ def pl_cast_strings(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def read_polars_lazy(parquet_files: list[str] = parquet_files, limit: int=0) -> pl.LazyFrame:
-    if limit:
-        return pl.scan_parquet(parquet_files, n_rows=limit).pipe(pl_cast_strings).collect().lazy()
-    return pl.scan_parquet(parquet_files).pipe(pl_cast_strings).collect().lazy()
+def read_polars_lazy(parquet_files: list[str] = parquet_files, preload: bool = False, limit: int | None = None) -> pl.LazyFrame:
+    df = pl.scan_parquet(parquet_files, n_rows=limit).pipe(pl_cast_strings)
+    if preload:
+        df = df.collect().lazy()
+    return df
 
 
 def read_polars(parquet_files: list[str] = parquet_files, limit: int=0) -> pl.DataFrame:
@@ -184,11 +185,11 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
     results = []
-    combs = list(product(polars_functions, [True, False], [True, False], [True, False], range(1, 30, 3)))
-    for func, gpu, streaming, lazy, data_inc in tqdm(combs):
+    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], range(14, 100, 3)))
+    for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
         try:
             limit = data_inc * BASE_SIZE
-            data = read_polars_lazy(limit=limit) if lazy else read_polars(limit=limit)
+            data = read_polars_lazy(limit=limit, preload=preload) if lazy else read_polars(limit=limit)
             data = data
             if not do_gpu and gpu:  # Currently unsupported
                 continue
@@ -196,7 +197,7 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
                 continue
             # if not lazy and streaming:
             #     continue
-            logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}, {limit=}")
+            logger.debug(f"Running: {func.__name__}: {gpu=}, {preload=}, {streaming=}, {lazy=}, {limit=}")
             # duration = pool.apply(
             #     func=time_func(func),
             #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
@@ -250,7 +251,6 @@ def benchmark_pandas() -> pd.DataFrame:
         for func in tqdm(pandas_functions):
             data = read_pandas()
             duration = pool.apply(func=time_func(func), kwds=dict(df=data))
-            # logger.info(duration)
             results.append({"func": func.__name__, "duration": duration})
             results_df = pd.DataFrame(results)
             results_df.to_parquet("results_pandas.parquet")
@@ -274,3 +274,4 @@ def checkMemory(amount):
 
 if __name__ == "__main__":
     fire.Fire()
+
