@@ -16,6 +16,8 @@ tqdm = "^4.66.5"
 rich = "^13.8.1"
 multiprocess = "^0.70.17"
 ipykernel = "^6.29.5"
+seaborn = "^0.13.2"
+matplotlib = "^3.9.2"
 
 
 [build-system]
