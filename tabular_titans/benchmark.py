@@ -32,6 +32,11 @@ if not len(logger.handlers):
 
 
 data_dir = Path(__file__).parent.parent / "data"
+if Path(__file__).parents[2].name == 'content':
+    results_dir = Path(__file__).parents[2] / "drive/MyDrive"
+else:
+    results_dir = Path(__file__).parents[1] / "data"
+
 parquet_files = [x.as_posix() for x in data_dir.glob("*.parquet")]
 logger.debug(f"{len(parquet_files)} files loaded.")
 JOIN_SIZE = 1_000_000
@@ -208,7 +213,7 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
                 }
             )
             results_df = pl.DataFrame(results)
-            results_df.write_parquet("results_polars.parquet")
+            results_df.write_parquet(results_dir / "results_polars.parquet")
         except Exception as e:
             logger.error(e)
     return results_df
