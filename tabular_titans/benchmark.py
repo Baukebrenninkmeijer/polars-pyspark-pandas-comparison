@@ -11,11 +11,9 @@ import psutil
 import pyspark.sql.functions as f
 
 # from multiprocessing.pool import Pool
-from multiprocess import process
 
 # from multiprocess import Process, Queue
 from multiprocess.pool import Pool
-from pyspark import SparkConf, SparkContext
 from pyspark.sql import DataFrame as SparkDataFrame
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, year
@@ -43,17 +41,22 @@ def read_pandas(parquet_files: list[str] = parquet_files) -> pd.DataFrame:
     df = pd.concat([pd.read_parquet(parquet_file) for parquet_file in parquet_files])
     return df
 
-
-def read_polars_lazy(parquet_files: list[str] = parquet_files) -> pl.LazyFrame:
-    return pl.scan_parquet(parquet_files).with_columns(
+def pl_cast_strings(df: pl.DataFrame) -> pl.DataFrame:
+    return df.with_columns(
         pl.col("customer_id").cast(pl.String), pl.col("product_id").cast(pl.String)
     )
 
 
-def read_polars(parquet_files: list[str] = parquet_files) -> pl.DataFrame:
-    return pl.read_parquet(parquet_files).with_columns(
-        pl.col("customer_id").cast(pl.String), pl.col("product_id").cast(pl.String)
-    )
+def read_polars_lazy(parquet_files: list[str] = parquet_files, limit: int=0) -> pl.LazyFrame:
+    if limit:
+        return pl.scan_parquet(parquet_files, n_rows=limit).pipe(pl_cast_strings).collect().lazy()
+    return pl.scan_parquet(parquet_files).pipe(pl_cast_strings).collect().lazy()
+
+
+def read_polars(parquet_files: list[str] = parquet_files, limit: int=0) -> pl.DataFrame:
+    if limit:
+        return pl.read_parquet(parquet_files, n_rows=limit).pipe(pl_cast_strings).limit(limit)
+    return pl.read_parquet(parquet_files).pipe(pl_cast_strings)
 
 
 def read_pyspark(
@@ -73,6 +76,7 @@ def pandas_groupby(df: pd.DataFrame):
         .agg({"order_id": "count", "quantity": "sum", "price": "mean"})
         .reset_index()
     )
+    return result
 
 
 def pandas_join(df: pd.DataFrame) -> pd.DataFrame:
@@ -170,43 +174,43 @@ def pyspark_sort(df: SparkDataFrame):
     df.orderBy(["order_date", "price"], ascending=[True, False]).collect()
 
 
-def benchmark_polars() -> pd.DataFrame:
+def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
     results = []
-    combs = list(product(polars_functions, [True, False], [True, False], [True, False]))
-    with Pool(processes=1) as pool:
-        for i in range(1, 50, 3):
-            for func, gpu, streaming, lazy in tqdm(combs):
-                try:
-                    data = read_polars_lazy() if lazy else read_polars()
-                    limit = i * BASE_SIZE
-                    data = data.limit(limit)
-                    if gpu and streaming:
-                        continue
-                    if not lazy and streaming:
-                        continue
-                    logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}")
-                    # duration = pool.apply(
-                    #     func=time_func(func),
-                    #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
-                    # )
-                    duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
-                    logger.info(duration)
-                    results.append(
-                        {
-                            "func": func.__name__,
-                            "gpu": gpu,
-                            "streaming": streaming,
-                            "lazy": lazy,
-                            "duration": duration,
-                            "limit": limit,
-                        }
-                    )
-                    results_df = pd.DataFrame(results)
-                    results_df.to_parquet("results_polars.parquet")
-                except Exception as e:
-                    logger.error(e)
+    combs = list(product(polars_functions, [True, False], [True, False], [True, False], range(1, 30, 3)))
+    for func, gpu, streaming, lazy, data_inc in tqdm(combs):
+        try:
+            limit = data_inc * BASE_SIZE
+            data = read_polars_lazy(limit=limit) if lazy else read_polars(limit=limit)
+            data = data
+            if not do_gpu and gpu:  # Currently unsupported
+                continue
+            if gpu and streaming:
+                continue
+            # if not lazy and streaming:
+            #     continue
+            logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}, {limit=}")
+            # duration = pool.apply(
+            #     func=time_func(func),
+            #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
+            # )
+            duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
+            logger.info(duration)
+            results.append(
+                {
+                    "func": func.__name__,
+                    "gpu": gpu,
+                    "streaming": streaming,
+                    "lazy": lazy,
+                    "duration": duration,
+                    "limit": limit,
+                }
+            )
+            results_df = pl.DataFrame(results)
+            results_df.write_parquet("results_polars.parquet")
+        except Exception as e:
+            logger.error(e)
     return results_df
 
 
@@ -264,10 +268,10 @@ def checkMemory(amount):
 
 
 if __name__ == "__main__":
-    threading.Thread(
-        name="Memory Regulator", target=checkMemory, kwargs={"amount": 25}
-    ).start()
+    # threading.Thread(
+    #     name="Memory Regulator", target=checkMemory, kwargs={"amount": 25}
+    # ).start()
     benchmark_polars()
     # benchmark_pyspark()
     # benchmark_pandas()
-    os._exit(0)
+    # os._exit(0)
