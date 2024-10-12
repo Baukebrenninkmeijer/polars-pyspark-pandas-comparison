@@ -26,16 +26,17 @@ from tabular_titans.utils import time_func
 
 logger = logging.getLogger("tabular_titans")
 logger.setLevel(logging.DEBUG)
-handler = RichHandler()
-handler.setLevel(logging.DEBUG)
-logger.addHandler(handler)
+if not len(logger.handlers):
+    handler = RichHandler()
+    handler.setLevel(logging.DEBUG)
+    logger.addHandler(handler)
 
 
 data_dir = Path(__file__).parent.parent / "data"
 parquet_files = [x.as_posix() for x in data_dir.glob("*.parquet")]
 logger.debug(f"{len(parquet_files)} files loaded.")
 JOIN_SIZE = 1_000_000
-BASE_SIZE = 100_000
+BASE_SIZE = 500_000
 
 
 def read_pandas(parquet_files: list[str] = parquet_files) -> pd.DataFrame:
@@ -177,32 +178,35 @@ def benchmark_polars() -> pd.DataFrame:
     with Pool(processes=1) as pool:
         for i in range(1, 50, 3):
             for func, gpu, streaming, lazy in tqdm(combs):
-                data = read_polars_lazy() if lazy else read_polars()
-                limit = i * BASE_SIZE
-                data = data.limit(limit)
-                if gpu and streaming:
-                    continue
-                if not lazy and streaming:
-                    continue
-                logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}")
-                # duration = pool.apply(
-                #     func=time_func(func),
-                #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
-                # )
-                duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
-                logger.info(duration)
-                results.append(
-                    {
-                        "func": func.__name__,
-                        "gpu": gpu,
-                        "streaming": streaming,
-                        "lazy": lazy,
-                        "duration": duration,
-                        "limit": limit,
-                    }
-                )
-                results_df = pd.DataFrame(results)
-                results_df.to_parquet("results_polars.parquet")
+                try:
+                    data = read_polars_lazy() if lazy else read_polars()
+                    limit = i * BASE_SIZE
+                    data = data.limit(limit)
+                    if gpu and streaming:
+                        continue
+                    if not lazy and streaming:
+                        continue
+                    logger.debug(f"Running: {gpu=}, {streaming=}, {lazy=}")
+                    # duration = pool.apply(
+                    #     func=time_func(func),
+                    #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
+                    # )
+                    duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
+                    logger.info(duration)
+                    results.append(
+                        {
+                            "func": func.__name__,
+                            "gpu": gpu,
+                            "streaming": streaming,
+                            "lazy": lazy,
+                            "duration": duration,
+                            "limit": limit,
+                        }
+                    )
+                    results_df = pd.DataFrame(results)
+                    results_df.to_parquet("results_polars.parquet")
+                except Exception as e:
+                    logger.error(e)
     return results_df
 
 
