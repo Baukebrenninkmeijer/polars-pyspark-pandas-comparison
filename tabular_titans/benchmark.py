@@ -185,7 +185,7 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
     results = []
-    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], range(14, 100, 3)))
+    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], range(14, 100, 20)))
     for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
         try:
             limit = data_inc * BASE_SIZE
@@ -195,23 +195,26 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
                 continue
             if gpu and streaming:
                 continue
+
+            config = {
+                    "func": func.__name__,
+                    "gpu": gpu,
+                    "streaming": streaming,
+                    "lazy": lazy,
+                    "limit": limit,
+                    "preload": preload,
+                }
             # if not lazy and streaming:
             #     continue
-            logger.debug(f"Running: {func.__name__}: {gpu=}, {preload=}, {streaming=}, {lazy=}, {limit=}")
+            logger.debug(f"Running: {config}")
             # duration = pool.apply(
             #     func=time_func(func),
             #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
             # )
             duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
+
             results.append(
-                {
-                    "func": func.__name__,
-                    "gpu": gpu,
-                    "streaming": streaming,
-                    "lazy": lazy,
-                    "duration": duration,
-                    "limit": limit,
-                }
+                config.update({"duration": duration})
             )
             results_df = pl.DataFrame(results)
             results_df.write_parquet(results_dir / "results_polars.parquet")
