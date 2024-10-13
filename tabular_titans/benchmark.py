@@ -125,7 +125,7 @@ def polars_join(
     gpu: bool = False,
     n: int = JOIN_SIZE,
 ) -> pl.DataFrame:
-    df = df.limit(n)
+    # df = df.limit(n)
     result = df.join(df, on="product_id", how="left")
     if isinstance(result, pl.LazyFrame):
         result = result.collect(streaming=streaming, engine="gpu" if gpu else "cpu")
@@ -184,8 +184,9 @@ def pyspark_sort(df: SparkDataFrame):
 def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
+    polars_functions = [polars_join]
     results = []
-    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], range(14, 100, 20)))
+    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], range(1, 50, 5)))
     for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
         try:
             limit = data_inc * BASE_SIZE
