@@ -1,3 +1,4 @@
+import gc
 import logging
 import os
 import threading
@@ -181,7 +182,7 @@ def pyspark_sort(df: SparkDataFrame):
     df.orderBy(["order_date", "price"], ascending=[True, False]).collect()
 
 
-def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
+def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars.parquet") -> pd.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
     polars_functions = [polars_join]
@@ -192,7 +193,7 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
             limit = data_inc * BASE_SIZE
             data = read_polars_lazy(limit=limit, preload=preload) if lazy else read_polars(limit=limit)
             data = data
-            if not do_gpu and gpu:  # Currently unsupported
+            if not use_gpu and gpu:  # Currently unsupported
                 continue
             if gpu and streaming:
                 continue
@@ -216,7 +217,11 @@ def benchmark_polars(do_gpu: bool = True) -> pd.DataFrame:
             config["duration"] = duration
             results.append(config)
             results_df = pl.DataFrame(results)
-            results_df.write_parquet(results_dir / "results_polars.parquet")
+            results_df.write_parquet(results_dir / f"{filename}.parquet")
+        except MemoryError as e:
+            logger.error(e)
+            del data
+            gc.collect()
         except Exception as e:
             logger.error(e)
     return results_df

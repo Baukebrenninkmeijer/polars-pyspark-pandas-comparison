@@ -20,6 +20,7 @@ seaborn = "^0.13.2"
 matplotlib = "^3.9.2"
 ruff = "^0.6.9"
 fire = "^0.7.0"
+vl-convert-python = "^1.7.0"
 
 
 [build-system]
