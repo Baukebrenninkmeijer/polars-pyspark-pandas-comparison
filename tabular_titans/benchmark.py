@@ -182,7 +182,7 @@ def pyspark_sort(df: SparkDataFrame):
     df.orderBy(["order_date", "price"], ascending=[True, False]).collect()
 
 
-def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars.parquet") -> pd.DataFrame:
+def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars") -> pd.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
     polars_functions = [polars_join]
@@ -191,12 +191,17 @@ def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars.parqu
     for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
         try:
             limit = data_inc * BASE_SIZE
-            data = read_polars_lazy(limit=limit, preload=preload) if lazy else read_polars(limit=limit)
-            data = data
             if not use_gpu and gpu:  # Currently unsupported
                 continue
-            if gpu and streaming:
+            elif gpu and streaming:
                 continue
+            elif not lazy and preload:
+                continue
+            if not lazy and streaming:
+                continue
+            if gpu and (func == polars_join) and limit > 1_000_000:
+                continue
+            data = read_polars_lazy(limit=limit, preload=preload) if lazy else read_polars(limit=limit)
 
             config = {
                     "func": func.__name__,
@@ -206,8 +211,7 @@ def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars.parqu
                     "limit": limit,
                     "preload": preload,
                 }
-            # if not lazy and streaming:
-            #     continue
+
             logger.debug(f"Running: {config}")
             # duration = pool.apply(
             #     func=time_func(func),
