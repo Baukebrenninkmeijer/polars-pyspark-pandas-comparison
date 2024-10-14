@@ -185,7 +185,6 @@ def pyspark_sort(df: SparkDataFrame):
 def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars") -> pd.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
-    polars_functions = [polars_join]
     results = []
     combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], [1, 5, 10, 50]))
     for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
@@ -195,13 +194,13 @@ def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars") -> 
                 continue
             elif gpu and streaming:
                 continue
-            elif not lazy and preload:
+            elif (not lazy) and preload:
                 continue
-            if not lazy and streaming:
+            elif (not lazy) and streaming:
                 continue
             # if gpu and (func == polars_join) and limit > 1_000_000:
             #     continue
-            if (func == polars_join) and (limit > 1_000_000):
+            elif (func == polars_join) and (limit > 1_000_000):
                 continue
             data = read_polars_lazy(limit=limit, preload=preload) if lazy else read_polars(limit=limit)
 
