@@ -201,6 +201,8 @@ def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars") -> 
                 continue
             if gpu and (func == polars_join) and limit > 1_000_000:
                 continue
+            if (func == polars_join )and (limit > 10_000_000):
+                continue
             data = read_polars_lazy(limit=limit, preload=preload) if lazy else read_polars(limit=limit)
 
             config = {
