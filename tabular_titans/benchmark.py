@@ -187,7 +187,7 @@ def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars") -> 
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
     polars_functions = [polars_join]
     results = []
-    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], range(1, 50, 5)))
+    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], [1, 5, 10, 50]))
     for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
         try:
             limit = data_inc * BASE_SIZE
