@@ -1,0 +1,51 @@
+Analysis Insights for 100M Dataset
+==================================
+
+1. GPU vs CPU Performance:
+   - GPU performance varies across different functions:
+     - For filtering operations, GPU is slightly faster than CPU (mean duration 147ms vs 153ms for non-lazy execution).
+     - For groupby operations, GPU shows similar performance to CPU (mean duration ~4100ms for non-lazy execution).
+   - The impact of GPU acceleration is more pronounced in some operations (e.g., filtering) than others.
+
+2. Effect of Lazy Execution:
+   - Lazy execution has a significant impact on performance, but the effect varies by operation:
+     - For filtering, lazy execution is slower (1277ms vs 151ms).
+     - For sorting, lazy execution is much slower (17747ms vs 8743ms).
+     - For groupby, lazy execution is slightly faster (2944ms vs 4117ms).
+   - The performance impact of lazy execution depends on the specific operation being performed.
+
+3. Impact of Streaming:
+   - Streaming also has varying effects on different operations:
+     - For filtering, streaming is slower (950ms vs 596ms).
+     - For sorting, streaming is significantly slower (23003ms vs 8366ms).
+     - For groupby and join operations, streaming shows similar performance to non-streaming.
+   - Streaming may introduce overhead for certain operations, particularly for sorting.
+
+4. Performance Distribution:
+   - There is a wide range of performance across different operations:
+     - Filtering operations are generally the fastest.
+     - Sorting operations take the longest time, especially with lazy execution and streaming.
+     - Groupby and join operations have moderate execution times.
+   - The performance distribution highlights the importance of choosing the right approach for each specific operation.
+
+5. Correlation Analysis:
+   - There is a moderate positive correlation (0.27) between the limit (data size) and duration, indicating that performance scales relatively well with data size.
+   - GPU usage has a slight negative correlation (-0.106) with duration, suggesting a small overall performance improvement.
+   - Lazy execution and streaming have small positive correlations with duration (0.126 and 0.189 respectively), indicating they may introduce some overhead in general.
+
+6. Performance by Limit:
+   - As expected, the mean duration increases with the limit (data size):
+     - 14M rows: 1850ms
+     - 34M rows: 3506ms
+     - 54M rows: 5103ms
+     - 74M rows: 6848ms
+     - 94M rows: 8559ms
+   - The relationship between data size and execution time appears to be roughly linear, suggesting good scalability.
+
+7. Overall Performance Considerations:
+   - The choice of execution strategy (GPU vs CPU, lazy vs eager, streaming vs non-streaming) should be made based on the specific operation and data size.
+   - Filtering operations benefit from GPU acceleration and eager execution.
+   - Sorting operations are significantly impacted by lazy execution and streaming, and should be optimized carefully.
+   - Groupby and join operations show relatively consistent performance across different execution strategies.
+   - As data size increases, the impact of different strategies becomes more pronounced, emphasizing the importance of benchmarking and optimization for large datasets.
+   - The linear scaling of performance with data size suggests that Polars handles large datasets efficiently, but careful consideration of execution strategies is crucial for optimal performance.
