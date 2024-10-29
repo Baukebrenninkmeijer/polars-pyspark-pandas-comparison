@@ -23,6 +23,7 @@ fire = "^0.7.0"
 vl-convert-python = "^1.7.0"
 phik = "^0.12.4"
 dython = "^0.7.8"
+altair = "^5.4.1"
 
 
 [build-system]
