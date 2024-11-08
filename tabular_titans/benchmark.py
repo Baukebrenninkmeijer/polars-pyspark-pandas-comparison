@@ -13,7 +13,6 @@ import psutil
 import pyspark.sql.functions as f
 
 # from multiprocessing.pool import Pool
-
 # from multiprocess import Process, Queue
 from multiprocess.pool import Pool
 from pyspark.sql import DataFrame as SparkDataFrame
@@ -33,10 +32,10 @@ if not len(logger.handlers):
 
 
 data_dir = Path(__file__).parent.parent / "data"
-if Path(__file__).parents[2].name == 'content':
+if Path(__file__).parents[2].name == "content":
     results_dir = Path(__file__).parents[2] / "drive/MyDrive"
 else:
-    results_dir = Path(__file__).parents[1] / "data"
+    results_dir = Path(__file__).parents[1] / "results"
 
 parquet_files = [x.as_posix() for x in data_dir.glob("*.parquet")]
 logger.debug(f"{len(parquet_files)} files loaded.")
@@ -48,22 +47,33 @@ def read_pandas(parquet_files: list[str] = parquet_files) -> pd.DataFrame:
     df = pd.concat([pd.read_parquet(parquet_file) for parquet_file in parquet_files])
     return df
 
+
 def pl_cast_strings(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(
         pl.col("customer_id").cast(pl.String), pl.col("product_id").cast(pl.String)
     )
 
 
-def read_polars_lazy(parquet_files: list[str] = parquet_files, preload: bool = False, limit: int | None = None) -> pl.LazyFrame:
-    df = pl.scan_parquet(parquet_files, n_rows=limit).pipe(pl_cast_strings)
+def read_polars_lazy(
+    parquet_files: list[str] = parquet_files,
+    preload: bool = False,
+    limit: int | None = None,
+) -> pl.LazyFrame:
+    df = pl.scan_parquet(parquet_files, n_rows=limit)
     if preload:
         df = df.collect().lazy()
     return df
 
 
-def read_polars(parquet_files: list[str] = parquet_files, limit: int=0) -> pl.DataFrame:
+def read_polars(
+    parquet_files: list[str] = parquet_files, limit: int = 0
+) -> pl.DataFrame:
     if limit:
-        return pl.read_parquet(parquet_files, n_rows=limit).pipe(pl_cast_strings).limit(limit)
+        return (
+            pl.read_parquet(parquet_files, n_rows=limit)
+            .pipe(pl_cast_strings)
+            .limit(limit)
+        )
     return pl.read_parquet(parquet_files).pipe(pl_cast_strings)
 
 
@@ -126,7 +136,6 @@ def polars_join(
     gpu: bool = False,
     n: int = JOIN_SIZE,
 ) -> pl.DataFrame:
-    # df = df.limit(n)
     result = df.join(df, on="product_id", how="left")
     if isinstance(result, pl.LazyFrame):
         result = result.collect(streaming=streaming, engine="gpu" if gpu else "cpu")
@@ -182,11 +191,22 @@ def pyspark_sort(df: SparkDataFrame):
     df.orderBy(["order_date", "price"], ascending=[True, False]).collect()
 
 
-def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars") -> pd.DataFrame:
+def benchmark_polars(
+    use_gpu: bool = True, filename: str = "results_polars"
+) -> pl.DataFrame:
     logger.info("Starting polars benchmark.")
     polars_functions = [polars_filter, polars_sort, polars_groupby, polars_join]
     results = []
-    combs = list(product(polars_functions, [True, False], [True, False], [True, False], [True, False], [1, 5, 10, 50]))
+    combs = list(
+        product(
+            polars_functions,
+            [True, False],
+            [True, False],
+            [True, False],
+            [True, False],
+            [1, 5, 10, 50],
+        )
+    )
     for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
         try:
             limit = data_inc * BASE_SIZE
@@ -200,16 +220,20 @@ def benchmark_polars(use_gpu: bool = True, filename: str = "results_polars") -> 
                 continue
             elif (func == polars_join) and (limit > 1_000_000):
                 continue
-            data = read_polars_lazy(limit=limit, preload=preload) if lazy else read_polars(limit=limit)
+            data = (
+                read_polars_lazy(limit=limit, preload=preload)
+                if lazy
+                else read_polars(limit=limit)
+            )
 
             config = {
-                    "func": func.__name__,
-                    "gpu": gpu,
-                    "streaming": streaming,
-                    "lazy": lazy,
-                    "limit": limit,
-                    "preload": preload,
-                }
+                "func": func.__name__,
+                "gpu": gpu,
+                "streaming": streaming,
+                "lazy": lazy,
+                "limit": limit,
+                "preload": preload,
+            }
 
             logger.debug(f"Running: {config}")
             # duration = pool.apply(
@@ -284,4 +308,3 @@ def checkMemory(amount):
 
 if __name__ == "__main__":
     fire.Fire()
-
