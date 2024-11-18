@@ -66,15 +66,9 @@ def read_polars_lazy(
 
 
 def read_polars(
-    parquet_files: list[str] = parquet_files, limit: int = 0
+    parquet_files: list[str] = parquet_files, limit: int | None = None
 ) -> pl.DataFrame:
-    if limit:
-        return (
-            pl.read_parquet(parquet_files, n_rows=limit)
-            .pipe(pl_cast_strings)
-            .limit(limit)
-        )
-    return pl.read_parquet(parquet_files).pipe(pl_cast_strings)
+    return pl.read_parquet(parquet_files, n_rows=limit)
 
 
 def read_pyspark(
@@ -118,23 +112,20 @@ def pandas_sort(df: pd.DataFrame) -> pd.DataFrame:
 def polars_groupby(
     df: pl.LazyFrame, streaming: bool = False, gpu: bool = False
 ) -> None:
-    with pl.Config() as cfg:
-        cfg.set_streaming_chunk_size(2_000_000)
-        result = (
-            df.group_by("customer_id")
-            .agg([pl.count("order_id"), pl.sum("quantity"), pl.mean("price")])
-            .sort("order_id", descending=True)
-            .limit(10)
-        )
-        if isinstance(result, pl.LazyFrame):
-            result = result.collect(streaming=streaming, engine="gpu" if gpu else "cpu")
+    result = (
+        df.group_by("customer_id")
+        .agg([pl.count("order_id"), pl.sum("quantity"), pl.mean("price")])
+        .sort("order_id", descending=True)
+        .limit(10)
+    )
+    if isinstance(result, pl.LazyFrame):
+        result = result.collect(streaming=streaming, engine="gpu" if gpu else "cpu")
 
 
 def polars_join(
     df: pl.LazyFrame | pl.DataFrame,
     streaming: bool = False,
     gpu: bool = False,
-    n: int = JOIN_SIZE,
 ) -> pl.DataFrame:
     result = df.join(df, on="product_id", how="left")
     if isinstance(result, pl.LazyFrame):
@@ -146,9 +137,8 @@ def polars_filter(
     df: pl.LazyFrame | pl.DataFrame, streaming: bool = False, gpu: bool = False
 ) -> pl.DataFrame:
     result = df.filter(
-        (pl.col("quantity") > 5)
-        & (pl.col("price") < 500)
-        & (pl.col("order_date").dt.year() == 2023)
+        (pl.col("quantity") > 5) & (pl.col("price") < 500)
+        # & (pl.col("order_date").dt.year() == 2023)
     )
     if isinstance(result, pl.LazyFrame):
         result = result.collect(streaming=streaming, engine="gpu" if gpu else "cpu")
@@ -200,14 +190,15 @@ def benchmark_polars(
     combs = list(
         product(
             polars_functions,
-            [True, False],
-            [True, False],
-            [True, False],
-            [True, False],
-            [1, 5, 10, 50],
+            [False],  # Preload
+            [False],  # GPU
+            [True, False],  # streaming
+            [True],  # lazy
+            [50],  # dataset size in millions
+            [10_000, 50_000, 100_000, 500_000, 1_000_000, 5_000_000, 10_000_000],
         )
     )
-    for func, preload, gpu, streaming, lazy, data_inc in tqdm(combs):
+    for func, preload, gpu, streaming, lazy, data_inc, chunk_size in tqdm(combs):
         try:
             limit = data_inc * BASE_SIZE
             if not use_gpu and gpu:  # Currently unsupported
@@ -233,6 +224,7 @@ def benchmark_polars(
                 "lazy": lazy,
                 "limit": limit,
                 "preload": preload,
+                "streaming_chunk_size": chunk_size,
             }
 
             logger.debug(f"Running: {config}")
@@ -240,7 +232,9 @@ def benchmark_polars(
             #     func=time_func(func),
             #     kwds=dict(df=data, gpu=gpu, streaming=streaming),
             # )
-            duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
+            with pl.Config() as cfg:
+                cfg.set_streaming_chunk_size(chunk_size)
+                duration = time_func(func)(df=data, gpu=gpu, streaming=streaming)
             config["duration"] = duration
             results.append(config)
             results_df = pl.DataFrame(results)
